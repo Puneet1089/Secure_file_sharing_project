@@ -49,50 +49,39 @@ def home():
 
 @app.post("/upload",response_model=UploadResponse)
 def upload_file(
-    # uploaded file
-    file: UploadFile=File(...),
-
-    # link expiry time (in hours)
-    expiry_hours:int =Form(...),
-
-    # max downloads allowed
-    max_downloads: int= Form(...),
-
-    # database session
-    db:Session= Depends(get_db)
+    file: UploadFile=File(...),    # uploaded file
+    expiry_hours:int =Form(...),  # link expiry time (in hours)
+    max_downloads: int= Form(...),    # max downloads allowed
+    db:Session= Depends(get_db)     # database session
 ):
+    
     # input validation
 
-    # expiry time cannot be zero or negative
-    if expiry_hours<= 0:
+    if expiry_hours<= 0:    # expiry time cannot be zero or negative
         raise HTTPException(
             status_code=400,
             detail="Expiry hours must be greater than 0."
         )
     
-    # download limit cannot be zero or negative
-    if max_downloads<=0:
+    if max_downloads<=0:    # download limit cannot be zero or negative
         raise HTTPException(
             status_code=400,
             detail="Max downloads must be greater than 0."
         )
 
-    # Generating unique link
+    # generating unique link
 
-    # Creating random UUID link 
+    # creating random UUID link 
     file_id =generate_file_id()
-    # Save file in uploads folder
+    # save file in uploads folder
     file_path= save_uploaded_file(file, file_id)
 
-    # Time Info
+    # time Info
 
-    # Current time upload
-    uploaded_at=datetime.now()
+    uploaded_at=datetime.now()    # current time upload
+    expiry_time =uploaded_at+timedelta(hours=expiry_hours)      # calculating expiry time of the link
 
-    # calculating expiry time of the link
-    expiry_time =uploaded_at+timedelta(hours=expiry_hours)
-
-    # Creating Database Object
+    # Creating database object
 
     # create 1 database record
     file_record = FileModel(
@@ -105,28 +94,25 @@ def upload_file(
         downloads_left=max_downloads
     )
 
-    # Saving metadata in Mysql
+    # saving metadata in Mysql
 
     save_file_record(db,file_record)
 
-    # Return Response with the file id
+    # return Response with the file id
     return UploadResponse(
         message="File uploaded successfully.",
         file_id = file_id,
         download_link= f"http://127.0.0.1:8000/download/{file_id}"
     )
 
-# Download API
+# download api
 @app.get("/download/{file_id}")
 def download_file(
-
-    # receving the file_id from url
-    file_id:str,
-    # Database session
-    db: Session= Depends(get_db)
+    file_id:str,    # receving the file_id from url
+    db: Session= Depends(get_db)    # db session
 
 ):
-    # Searching the file in database
+    # searching the file in database
     file_record =get_file_record(db, file_id)
 
     # if file doesnot exist
@@ -135,8 +121,8 @@ def download_file(
             status_code=404,
             detail="File not found."
         )
-    # Checking download link is valid or not
-    if datetime.now() >file_record.expiry_time:
+    
+    if datetime.now() >file_record.expiry_time:     # checking download link is valid or not
 
         raise HTTPException(
 
@@ -145,17 +131,17 @@ def download_file(
             detail="Download link has expired."
 
         )
-    # Checking the download limit
-    if file_record.downloads_left<= 0:
+    
+    if file_record.downloads_left<= 0:  # checking the download limit
 
         raise HTTPException(
             status_code=403,
             detail="Download limit reached."
         )
-    # Reducing download count
-    update_download_count(db, file_record)
+    
+    update_download_count(db, file_record)   # reducing download count
 
-    # Sending the file back to the user
+    # sending the file back to the user
     return FileResponse(
         path=file_record.filepath,
         filename=file_record.filename
