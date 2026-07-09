@@ -33,7 +33,6 @@ from app.crud import (
 app = FastAPI(
     title="Secure File Sharing System",
     description="An application to upload files and generate secure links.",
-    version="1.0"
 )
 
 # home api
